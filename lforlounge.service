@@ -1,0 +1,15 @@
+[Unit]
+Description=LForLounge YO
+After=syslog.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/csh-automation
+ExecStart=/home/pi/csh-automation/receiverControl.py
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
