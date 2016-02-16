@@ -13,7 +13,7 @@ inputb = "4f:82:22:00"
 inputc = "4f:82:23:00"
 #inputd = "4f:82:24:00"
 
-token = "FVRighYFcjsFtyvZPWipiTK6VAoGnaX3wLt2d2N7MEgPPeB9qC"
+token = <API KEY>
 
 isMuted = 0
 
