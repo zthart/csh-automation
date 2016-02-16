@@ -1,21 +1,25 @@
 #!/usr/bin/env python
-import os
-import sys
+
 import serial
+from flask import request
 from flask import Flask
 from flask import jsonify
 from flask import make_response
 
 app = Flask(__name__)
 
-inputa = "echo \"tx 4f:82:21:00\" | cec-client -s"
-inputb = "echo \"tx 4f:82:22:00\" | cec-client -s"
-inputc = "echo \"tx 4f:82:23:00\" | cec-client -s"
-#inputd = "echo \"tx 4f:82:24:00\" | cec-client -s"
+inputa = "4f:82:21:00"
+inputb = "4f:82:22:00"
+inputc = "4f:82:23:00"
+#inputd = "4f:82:24:00"
 
-inputs = {1:(inputa, "1. Sets the active input on the receiver to the Media PC"),
-2:(inputb, "2. Sets the active input on the receiver to Aux HDMI"), 
-3:(inputc, "3. Sets the active input on the receiver to the Chromecast")}
+token = "FVRighYFcjsFtyvZPWipiTK6VAoGnaX3wLt2d2N7MEgPPeB9qC"
+
+isMuted = 0
+
+inputs = {1:(inputa, "1. Media PC"),
+2:(inputb, "2. Aux HDMI"), 
+3:(inputc, "3. Chromecast")}
 #4:(inputd, "4. Sets the active input on the receiver to this machine - debug only")
 
 import cec
@@ -162,6 +166,7 @@ def log_callback(level, time, message):
 def key_press_callback(key, duration):
   return lib.KeyPressCallback(key, duration)
 
+#Set up serial communications with the projector
 ser = serial.Serial(
 	port='/dev/ttyUSB0',
 	baudrate=115200,
@@ -172,47 +177,107 @@ ser = serial.Serial(
 
 ser.isOpen()
 
+#LibCEC stuff, should be eventually culled back to what we actually need
 lib = pyCecClient()
 lib.SetLogCallback(log_callback)
 lib.SetKeyPressCallback(key_press_callback)
-
-# initialise libCEC and enter the main loop
 lib.InitLibCec()
 
-@app.route('/input/<int:id>')
-def lounge_input(id):
-	if id > 4 or id < 1:
-		return make_response("fuckoff", 400)
-	
-	print(id)
-	print(inputs)
+#Receiver Input Control
+#
+#A successful request will change the currently selected input on the
+#receiver. The currently connected devices are the MediaPC, the 
+#AuxHDMI cable for presentations, the Chromecast, and the RPi that this
+#service is running on. There is no handled input to switch to this 
+#machine in an effort to prevent people from attempting to login to the 
+#pi to change settings.
 
-	os.system(inputs[id][0])
-
-	return make_response("okay", 200)
+@app.route('/lounge/receiver/input/', methods=["GET", "PUT"])
+def lounge_input():
+	#store request json
+	req = request.get_json()
+	input = req["input"]["select"]
+	if req["token"]["id"] == token:
+		if input == "MediaPC":
+			#Change to MediaPC (2.1.0.0)
+			lib.ProcessCommandTx("4f:82:21:00")
+		elif input == "AuxHDMI":
+			#Change to AuxHDMI (2.2.0.0)
+			lib.ProcessCommandTx("4f:82:22:00")
+		elif input == "Chromecast":
+			#Change to Chromecast (2.3.0.0)
+			lib.ProcessCommandTx("4f:82:23:00")
+		else:
+			#If no proper input was selected
+			return make_response(jsonify({"status" : {"success":False}}), 400)
+		#If an available input was selected and switched
+		return make_response(jsonify({"status" : {"success":True}}), 200)
+	else:
+		#If the provided token was incorrect
+		return make_response(jsonify({"status" : {"success":False}}), 400)
 
 @app.route('/')
 def lounge_help():
 	return make_response(jsonify(inputs), 200)
 
+#Mute Control                                                         
+#                                                                     
+#A successful request will send commands to emulate a user pressing   
+#the mute button on the receiver remote, then releasing it.           
+#The mute command is the only command that requires we actually      
+#release the selected button - as all the others have a desired      
+#behavior of sending multiple inputs, whereas the mute button should
+#only be pressed once in order to correctly mute the machine.
+#
+#To compensate for not being able to get a clear status from the
+#reciever as to its volume/mute state, the assumed mute state is off when the
+#service starts. Since this is the case most often, the downsides
+#to this assumption are relatively small. Care should be taken when
+#restarting this service that the receiver is in an unmuted state
+#in order for the service to keep a correct status for the receiver
+
+@app.route('/lounge/receiver/mute/', methods=["GET", "PUT"])
+def lounge_mute():
+	global isMuted
+	#store request json	
+	req = request.get_json()
+	if req["token"]["id"] == token:
+		#send user control pressed, then user control released
+		lib.ProcessCommandTx("15:44:43")
+		lib.ProcessCommandTx("15:45")
+
+		#flip states then return
+		if isMuted == 0:
+			isMuted = 1
+		else:
+			isMuted = 0;
+		
+		return make_response(jsonify({"status" : {"success":True,"state":isMuted}}),200)
+	else:
+		#if the request token is invalid
+		return make_response(jsonify({"status" : {"success":False,"state":isMuted}}),400) 
+
+#Volume Control - Old
+#
+#This is the old implementation of Volume Control, and has yet to
+#be implemented according to the API. 
+
 @app.route('/vol/up')
 def lounge_vol_up():
-	os.system("echo \"tx 15:44:41 \" | cec-client -s")
-	return make_response("okay", 200)
-@app.route('/vol/down')
-def lounge_vol_down():
-	os.system("echo \"tx 15:44:42\" | cec-client -s")
-	return make_response("okay", 200)
-@app.route('/vol/mute')
-def lounge_vol_mute():
-	#Doesn't work properly
-	#These commands are being sent as button presses
-	#I think mute doesn't actually apply until button release
-	#And I can't send two commands before closing the client
-	lib.ProcessCommandTx("15:44:43")
-	lib.ProcessCommandTx("15:45")
+	lib.ProcessCommandTx("15:44:41")
 	return make_response("okay", 200)
 
+@app.route('/vol/down')
+def lounge_vol_down():
+	lib.ProcessCommandTx("15:44:42")
+	print(lib.lib.AudioStatus())
+	return make_response("okay", 200)
+
+#Projector Control - Old
+#
+#This is the old implementation of the Projector Control, and has
+#yet to be implemented according to the API.
+ 
 @app.route('/proj/on')
 def lounge_proj_on():
 	ser.write("\r*pow=on#\r")
@@ -221,14 +286,7 @@ def lounge_proj_on():
 @app.route('/proj/off')
 def lounge_proj_off():
 	ser.write("\r*pow=off#\r")
-	return make_response("okay", 200)
-
-@app.route('/proj/status')
-def lounge_proj_status():
-	ser.write("\r*pow=?#\r")
-	return make_response("okay", 200)
-
+	return make_response("okay", 200)	
 
 if __name__ == '__main__':
-  # initialise libCEC
 	app.run(host='0.0.0.0', debug=True)
