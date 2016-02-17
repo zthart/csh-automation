@@ -6,29 +6,27 @@ Query for the status of the Lounge projector. This will return the current power
 
 ```
 GET https://control.csh.rit.edu/lounge/projector
-
-token{
-	"id": [shared_token]
-}
 ```
 Response:
 
 ```
-status{
-	"success": true
-}
-projector{
-	"power": 0 (off) / 1 (on) / 2 (cooling),
-	"input": "HDMI 2",
-	"hours": 2145
-	"sources": {
-		"HDMI 1": null,
-		"HDMI 2": "Mixer",
-		"Computer 1": "Aux VGA",
-		"Computer 2": null,
-		"Composite": null
-		},
-	"blank": false,
+{
+  "projector": {
+    "blank": false,
+    "hours": 2145,
+    "input": "HMDI 2",
+    "power": false,
+    "sources": {
+      "Composite": null,
+      "Computer 1": "Aux VGA",
+      "Computer 2": null,
+      "HDMI 1": null,
+      "HDMI 2": "Receiver"
+    }
+  },
+  "status": {
+    "success": true
+  }
 }
 ```
 
@@ -38,21 +36,22 @@ Example:
 ```
 PUT https://control.csh.rit.edu/lounge/projector/power
 
-token{
-	"id": [shared_token]
-}
-power{
-	"state": 0 (off) / 1 (on) 
+{
+  "token": {
+    "id": ""
+  },
+  "power": {
+	"state": true / false
+  }
 }
 ```
 Response:
 
 ```
-status{
-	"success": true
-}
-projector{
-	"power": 1 (on) / 0 (cooling)
+{
+  "status": {
+    "success": true
+  }
 }
 ```
 
@@ -62,18 +61,22 @@ Example:
 ```
 PUT https://control.csh.rit.edu/lounge/projector/input
 
-token{
-	"id": [shared_token]
-}
-input{
+{
+  "token": {
+    "id": ""
+  },
+  "input": {
 	"select": [Item from sources list. Ex. "HDMI 2"]
+  }
 }
 ```
 Response:
 
 ```
-status{
-	"success": true
+{
+  "status": {
+    "success": true
+  }
 }
 ```
 #####Blank Projector
@@ -82,16 +85,19 @@ Example:
 ```
 PUT https://control.csh.rit.edu/lounge/projector/blank
 
-token{
-	"id": [shared_token]
+{
+  "token": {
+    "id": ""
+  }
 }
 ```
 Response:
 
 ```
-status{
-	"success": true
-	"state": true [blanked] / false [video]
+{
+  "status": {
+    "success": true
+  }
 }
 ```
 
@@ -102,63 +108,170 @@ Query for the status of the Lounge receiver. This will return the current power 
 
 ```
 GET https://control.csh.rit.edu/lounge/receiver
-
-token{
-	"id": [shared_token]
-}
 ```
 Response:
 
 ```
-status{
-	"success": true
-}
-receiver{
-	"power": 0 (off) / 1 (on),
-	"input": "HDMI 2",
-	"volume": 69,
-	"sources": {
-		"HDMI 1": "Media PC",
-		"HDMI 2": "Chromecast",
-		"HDMI 3": "Aux HDMI",
-		"HDMI 4": "Raspberry Pi"
-		},
-	"mute": false
+{
+  "projector": {
+    "input": "HMDI 2",
+    "mute": false,
+    "power": false,
+    "sources": {
+      "HDMI 1": "Media PC",
+      "HDMI 2": "Aux HDMI",
+      "HDMI 3": "Chromecast",
+      "HDMI 4": "Raspberry Pi"
+    },
+    "volume": 46
+  },
+  "status": {
+    "success": true
+  }
 }
 ```
 #####Toggle Power
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/power
 
-token{
-	"id": [shared_token]
-}
-power{
-    "state": 0 (off) / 1 (on) 
+{
+  "token": {
+    "id": ""
+  },
+  "power": {
+	"state": true / false
+  }
 }
 ```
 Response:
 
 ```
-status{
-	"success": true
+{
+  "status": {
+    "success": true
+  }
 }
 ```
 #####Change Input
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/input
 
-token{
-	"id": [shared_token]
-}
-input{
-    "select": [Item from sources list. Ex. "HDMI 2"]
+{
+  "token": {
+    "id": ""
+  },
+  "input": {
+	"select": [Item from sources list. Ex. "HDMI 2"]
+  }
 }
 ```
 Response:
 
 ```
-status{
-	"success": true
+{
+  "status": {
+    "success": true
+  }
+}
+```
+#####Audio Mute Toggle
+```
+PUT https://control.csh.rit.edu/lounge/receiver/mute
+
+{
+  "token": {
+    "id": ""
+  }
+}
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  }
+}
+```
+###Light Controls
+#####Light Status
+```
+GET https://control.csh.rit.edu/lounge/lights
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  },
+  "lights": {
+	"L1": true / false
+	"L2": true / false
+  }
+}
+```
+#####Toggle Lights
+```
+PUT https://control.csh.rit.edu/lounge/lights
+
+{
+  "token": {
+    "id": ""
+  },
+  "lights": {
+	"L1": true / false
+	"L2": true / false
+  }
+}
+
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  }
+}
+```
+###Radiator Controls
+#####Radiator Status
+```
+GET https://control.csh.rit.edu/lounge/radiator
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  },
+  "radiator": {
+	"fan": true / false
+  }
+}
+```
+#####Toggle Radiator
+```
+PUT https://control.csh.rit.edu/lounge/lights
+
+{
+  "token": {
+    "id": ""
+  },
+  "radiator": {
+	"fan": true / false
+  }
+}
+
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  }
 }
 ```
