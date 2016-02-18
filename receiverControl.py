@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import serial
+import time
 from flask import request
 from flask import Flask
 from flask import jsonify
 from flask import make_response
+
 
 app = Flask(__name__)
 
@@ -13,9 +15,9 @@ inputb = "4f:82:22:00"
 inputc = "4f:82:23:00"
 #inputd = "4f:82:24:00"
 
-token = <API KEY>
+token = "<API KEY>"
 
-isMuted = 0
+lastLogCallback = ""
 
 inputs = {1:(inputa, "1. Media PC"),
 2:(inputb, "2. Aux HDMI"), 
@@ -133,6 +135,7 @@ class pyCecClient:
 
   # logging callback
   def LogCallback(self, level, time, message):
+    global lastLogCallback  
     if level > self.log_level:
       return 0
 
@@ -144,6 +147,8 @@ class pyCecClient:
       levelstr = "NOTICE:  "
     elif level == cec.CEC_LOG_TRAFFIC:
       levelstr = "TRAFFIC: "
+      #Pull log message to lastLogCallback
+      lastLogCallback = message
     elif level == cec.CEC_LOG_DEBUG:
       levelstr = "DEBUG:   "
 
@@ -191,8 +196,13 @@ lib.InitLibCec()
 #service is running on. There is no handled input to switch to this 
 #machine in an effort to prevent people from attempting to login to the 
 #pi to change settings.
+#
+#Interesting to note, occasionally the Physicall Addresses would switch
+#to addresses that started with 1, instead of 2 (e.g. 1.3.0.0).
+#I don't know why this happens, a call to lib.lib.GetDevicePhysicalAddress(1)
+#returns 5120 in this instance. Check for that.
 
-@app.route('/lounge/receiver/input/', methods=["GET", "PUT"])
+@app.route('/lounge/receiver/input', methods=["GET", "PUT"])
 def lounge_input():
 	#store request json
 	req = request.get_json()
@@ -200,13 +210,16 @@ def lounge_input():
 	if req["token"]["id"] == token:
 		if input == "MediaPC":
 			#Change to MediaPC (2.1.0.0)
-			lib.ProcessCommandTx("4f:82:21:00")
+			lib.ProcessCommandTx("1f:82:21:00")
 		elif input == "AuxHDMI":
 			#Change to AuxHDMI (2.2.0.0)
-			lib.ProcessCommandTx("4f:82:22:00")
+			lib.ProcessCommandTx("1f:82:22:00")
 		elif input == "Chromecast":
 			#Change to Chromecast (2.3.0.0)
-			lib.ProcessCommandTx("4f:82:23:00")
+			lib.ProcessCommandTx("1f:82:23:00")
+		elif input == "Admin":
+			#Change to Chromecast (2.4.0.0)
+			lib.ProcessCommandTx("1f:82:24:00")
 		else:
 			#If no proper input was selected
 			return make_response(jsonify({"status" : {"success":False}}), 400)
@@ -215,10 +228,6 @@ def lounge_input():
 	else:
 		#If the provided token was incorrect
 		return make_response(jsonify({"status" : {"success":False}}), 400)
-
-@app.route('/')
-def lounge_help():
-	return make_response(jsonify(inputs), 200)
 
 #Mute Control                                                         
 #                                                                     
@@ -236,42 +245,76 @@ def lounge_help():
 #restarting this service that the receiver is in an unmuted state
 #in order for the service to keep a correct status for the receiver
 
-@app.route('/lounge/receiver/mute/', methods=["GET", "PUT"])
+@app.route('/lounge/receiver/mute', methods=["GET", "PUT"])
 def lounge_mute():
-	global isMuted
 	#store request json	
 	req = request.get_json()
 	if req["token"]["id"] == token:
 		#send user control pressed, then user control released
 		lib.ProcessCommandTx("15:44:43")
 		lib.ProcessCommandTx("15:45")
-
-		#flip states then return
-		if isMuted == 0:
-			isMuted = 1
-		else:
-			isMuted = 0;
+		lib.ProcessCommandTx("15:71")
 		
-		return make_response(jsonify({"status" : {"success":True,"state":isMuted}}),200)
+		if lounge_audio_status() > 127:
+			return make_response(jsonify({"status" : {"success":True,"state":1}}),200)
+		else:
+			return make_response(jsonify({"status" : {"success":True,"state":0}}),200)
 	else:
 		#if the request token is invalid
 		return make_response(jsonify({"status" : {"success":False,"state":isMuted}}),400) 
 
-#Volume Control - Old
+#Volume Control
 #
-#This is the old implementation of Volume Control, and has yet to
-#be implemented according to the API. 
+#A successful request will send either a volume up (1), or volume down (0)
+#command, along with a command to ask the receiver for it's current audio status.
+#The service will then return whether or not the volume change was successful,
+#and the current audio status. the audio status reports volume from 1-80, mapped
+#to 1-127. Any number larger than 127 reported as an audio status means
+#the system is presently muted.
+#
+#Any requests with a control type less than 0 or larger than 1 will return the
+#last known audio status, and "success" as 'False'. Requests with an invalid
+#API Key receive the same return status.
 
-@app.route('/vol/up')
-def lounge_vol_up():
-	lib.ProcessCommandTx("15:44:41")
-	return make_response("okay", 200)
+@app.route('/lounge/receiver/volume', methods=["GET", "PUT"])
+def lounge_volume():
+	req = request.get_json()
+	if req["token"]["id"] == token:
+		if req["control"]["type"] == 1:
+			lib.ProcessCommandTx("15:44:41")
+			lib.ProcessCommandTx("15:71")
+			time.sleep(.5)
+			return make_response(jsonify({"status" : {"success":True, "level" : lounge_audio_status()}}), 200)
+		elif req["control"]["type"] == 0:
+			lib.ProcessCommandTx("15:44:42")
+			lib.ProcessCommandTx("15:71")
+			time.sleep(.5)
+			return make_response(jsonify({"status" : {"success":True, "level" : lounge_audio_status()}}), 200)
+		else:
+			return make_response(jsonify({"status" : {"success":False, "level" : lounge_audio_status()}}), 400)
+	else:
+		return make_response(jsonify({"status" : {"success":False, "level" : lounge_audio_status()}}), 400)
 
-@app.route('/vol/down')
-def lounge_vol_down():
-	lib.ProcessCommandTx("15:44:42")
-	print(lib.lib.AudioStatus())
-	return make_response("okay", 200)
+#Refresh Audio Status
+#
+#Asks the Receiver for its updated audio status, then waits long enough
+#for its response. Returns a value between 1-127 for unmuted volumes,
+#returns the previous audio value plus 128 for muted volumes.
+def lounge_audio_status():
+	lib.ProcessCommandTx("15:71")
+	time.sleep(.5)
+	audio_status = lib.lib.AudioStatus()
+	return audio_status 
+
+#Refresh Input Status
+#
+#Attempted to treat input status the same way as audio status. Did not work
+#def lounge_rinput_status():
+#	time.sleep(.25)
+#	lib.ProcessCommandTx("1f:85")
+#	time.sleep(.25)
+#	input_status = lib.lib.GetActiveSource()
+#	return input_status
 
 #Projector Control - Old
 #
@@ -287,6 +330,10 @@ def lounge_proj_on():
 def lounge_proj_off():
 	ser.write("\r*pow=off#\r")
 	return make_response("okay", 200)	
+
+@app.route('/test')
+def send_test():
+	return make_response(str(lib.lib.GetDevicePhysicalAddress(1)), 200)
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0', debug=True)
