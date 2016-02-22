@@ -10,19 +10,9 @@ from flask import make_response
 
 app = Flask(__name__)
 
-inputa = "4f:82:21:00"
-inputb = "4f:82:22:00"
-inputc = "4f:82:23:00"
-#inputd = "4f:82:24:00"
-
 token = "<API KEY>"
 
 lastLogCallback = ""
-
-inputs = {1:(inputa, "1. Media PC"),
-2:(inputb, "2. Aux HDMI"), 
-3:(inputc, "3. Chromecast")}
-#4:(inputd, "4. Sets the active input on the receiver to this machine - debug only")
 
 import cec
 print(cec)
@@ -180,7 +170,10 @@ ser = serial.Serial(
 	bytesize=serial.EIGHTBITS
 )
 
-ser.isOpen()
+if not ser.isOpen():
+    ser.open()
+else:
+    ser.close()
 
 #LibCEC stuff, should be eventually culled back to what we actually need
 lib = pyCecClient()
@@ -316,24 +309,211 @@ def lounge_audio_status():
 #	input_status = lib.lib.GetActiveSource()
 #	return input_status
 
-#Projector Control - Old
+###
+#Projector Controls
 #
-#This is the old implementation of the Projector Control, and has
-#yet to be implemented according to the API.
- 
-@app.route('/proj/on')
-def lounge_proj_on():
-	ser.write("\r*pow=on#\r")
-	return make_response("okay", 200)
+#Each time a projector control is called the serial port is opened,
+#written to and/or read from, flushed, then closed in order to keep
+#instructions from being misread or miswritten.
+###
 
-@app.route('/proj/off')
-def lounge_proj_off():
-	ser.write("\r*pow=off#\r")
-	return make_response("okay", 200)	
+#Projector Power Control
+#
+#Sends power commands over serial to the projector, takes either a string
+#"true" or "false" for "on" and "off" respectively. Response code 412 is 
+#used in instances in which the projectors status cannot be acquired.
+#It is safe to assume that in these moments the projector is cooling down,
+#or is unreachable via serial.
+@app.route('/lounge/projector/power', methods=["GET", "PUT"])
+def lounge_projpower():
+	req = request.get_json()
+        ser.open()
+	if req["token"]["id"] == token:
+		if req["power"]["state"] == "true":
+			ser.write("\r*pow=on#\r")
+                        ser.flush()
+                        ser.readline()
+                        if ser.readline().find("ON") > 0:
+                            ser.flush()
+                            ser.close()
+			    return make_response(jsonify({"status" : {"success":True}}), 200)
+                        else:
+                            ser.flush()
+                            ser.close()
+                            return make_response(jsonify({"status" : {"success":False}}), 412)
+		elif req["power"]["state"] == "false":
+			ser.write("\r*pow=off#\r")
+                        ser.flush()
+                        ser.readline()
+                        if ser.readline().find("OFF") > 0:
+                            ser.flush()
+                            ser.close()
+			    return make_response(jsonify({"status" : {"success":True}}), 200)
+                        else:
+                            ser.flush()
+                            ser.close()
+                            return make_response(jsonify({"status" : {"success":False}}), 412)
+		else:
+                        ser.close()
+			return make_response(jsonify({"status" : {"success":False}}), 400)
+	else:
+                ser.close()
+		return make_response(jsonify({"status" : {"success":False}}), 400)
 
-@app.route('/test')
-def send_test():
-	return make_response(str(lib.lib.GetDevicePhysicalAddress(1)), 200)
+#Projector Blank Control
+#
+#Checks the current blank status of the projector, and toggles it.
+@app.route('/lounge/projector/blank', methods=["GET", "PUT"])
+def lounge_projblank():
+        req = request.get_json()
+        ser.open()
+        ser.write("\r*blank=?#\r")
+        ser.flush()
+        ser.readline()
+        status = ser.readline()
+        if req["token"]["id"] == token:
+            if status.find("ON") > 0:
+                print(status)
+                ser.write("\r*blank=off#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            else:
+                print(status)
+                ser.write("\r*blank=on#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+        else:
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":False}}), 400)
+
+@app.route('/lounge/projector/input', methods=["GET", "PUT"])
+def lounge_projinput():
+        req = request.get_json()
+        ser.open()
+        source = req["input"]["select"]
+        if req["token"]["id"] == token:
+            if source == "HDMI2":
+                ser.write("\r*sour=hdmi2#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif source == "HDMI":
+                ser.write("\r*sour=hdmi#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif source == "Component":
+                ser.write("\r*sour=ypbr#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif source == "Computer1":
+                ser.write("\r*sour=RGB#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif source == "Computer2":
+                ser.write("\r*sour=RGB2#\r")
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            else:
+                ser.close()
+                return make_response(jsonify({"status" : {"success":False}}), 400)
+        else:
+            ser.close()
+            return make_response(jsonify({"status" : {"success":False}}), 400)
+
+@app.route('/lounge/projector', methods=["GET", "PUT"])
+def lounge_proj():
+        sources = {"Composite": None,
+                "Computer 1": "Aux VGA",
+                "Computer 2": None,
+                "HDMI 1": None,
+                "HDMI 2": "Receiver"}
+        currentInput = lounge_proj_getCurrentSource()
+        currentPower = lounge_proj_getCurrentPower()
+        currentHours = lounge_proj_getCurrentHours()
+        currentBlank = lounge_proj_getCurrentBlank()
+
+        currentStatus = {"blank":currentBlank,
+                "hours":currentHours,
+                "input":currentInput,
+                "power":currentPower,
+                "sources": sources}
+        return make_response(jsonify({"projector" : currentStatus, "status" : {"success" : True}}), 200)
+
+def lounge_proj_getCurrentBlank():
+    ser.open()
+    ser.write("\r*blank=?#\r")
+    ser.flush()
+    ser.readline()
+    blankline = ser.readline()
+    ser.close()
+    if blankline.find("ON") > 0:
+        return True
+    else:
+        return False
+
+def lounge_proj_getCurrentHours():
+    ser.open()
+    ser.write("\r*ltim=?#\r")
+    ser.flush()
+    ser.readline()
+    hourline = ser.readline()
+    ser.close()
+    return hourline[6:-3]
+
+def lounge_proj_getCurrentPower():
+    ser.open()
+    ser.write("\r*pow=?#\r")
+    ser.flush()
+    ser.readline()
+    powline = ser.readline()
+    if powline.find("ON") > 0:
+        ser.close()
+        return True
+    else:
+        ser.close()
+        return False
+
+def lounge_proj_getCurrentSource():
+    ser.open()
+    ser.write("\r*sour=?#\r")
+    ser.flush()
+    ser.readline()
+    sourceline = ser.readline()
+    if sourceline.find("RGB") > 0:
+        if sourceline.find("2") > 0:
+            ser.close()
+            return "Computer 2"
+        else:
+            ser.close()
+            return "Computer 1"
+    elif sourceline.find("HDMI") > 0:
+        if sourceline.find("2") > 0:
+            ser.close()
+            return "HDMI 2"
+        else:
+            ser.close()
+            return "HDMI 1"
+    elif sourceline.find("YPBR") > 0:
+        ser.close()
+        return "Composite"
+    else:
+        ser.close()
+        return "Error"
+
+@app.route('/lounge/test', methods=["GET", "PUT"])
+def lounge_test():
+	ser.write("\r*pow=?#\r")
+        ser.flush()
+        ser.readline()
+	response = ser.readline()
+        return make_response(response, 200)
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0', debug=True)
