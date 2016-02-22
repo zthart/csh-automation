@@ -12,7 +12,8 @@ app = Flask(__name__)
 
 token = "<API KEY>"
 
-lastLogCallback = ""
+sourceChangeCallback = ""
+lastKnownSource = "21:00"
 
 import cec
 print(cec)
@@ -125,7 +126,7 @@ class pyCecClient:
 
   # logging callback
   def LogCallback(self, level, time, message):
-    global lastLogCallback  
+    global sourceChangeCallback 
     if level > self.log_level:
       return 0
 
@@ -137,8 +138,11 @@ class pyCecClient:
       levelstr = "NOTICE:  "
     elif level == cec.CEC_LOG_TRAFFIC:
       levelstr = "TRAFFIC: "
-      #Pull log message to lastLogCallback
-      lastLogCallback = message
+      #If the message is a broadcast from the audio system
+      #specifying a routing change, store it in sourceChangeCallback
+      if message.find("5f:80") > 0:
+          sourceChangeCallback = message
+          lounge_sourceChanged()
     elif level == cec.CEC_LOG_DEBUG:
       levelstr = "DEBUG:   "
 
@@ -197,21 +201,26 @@ lib.InitLibCec()
 
 @app.route('/lounge/receiver/input', methods=["GET", "PUT"])
 def lounge_input():
+        global lastKnownSource
 	#store request json
 	req = request.get_json()
 	input = req["input"]["select"]
 	if req["token"]["id"] == token:
 		if input == "MediaPC":
 			#Change to MediaPC (2.1.0.0)
+                        lastKnownSource = "21:00"
 			lib.ProcessCommandTx("1f:82:21:00")
 		elif input == "AuxHDMI":
 			#Change to AuxHDMI (2.2.0.0)
+                        lastKnownSource = "22:00"
 			lib.ProcessCommandTx("1f:82:22:00")
 		elif input == "Chromecast":
 			#Change to Chromecast (2.3.0.0)
+                        lastKnownSource = "23:00"
 			lib.ProcessCommandTx("1f:82:23:00")
 		elif input == "Admin":
 			#Change to Chromecast (2.4.0.0)
+                        lastKnownSource = "24:00"
 			lib.ProcessCommandTx("1f:82:24:00")
 		else:
 			#If no proper input was selected
@@ -301,13 +310,58 @@ def lounge_audio_status():
 
 #Refresh Input Status
 #
-#Attempted to treat input status the same way as audio status. Did not work
-#def lounge_rinput_status():
-#	time.sleep(.25)
-#	lib.ProcessCommandTx("1f:85")
-#	time.sleep(.25)
-#	input_status = lib.lib.GetActiveSource()
-#	return input_status
+#Each time a broadcast from the audio system that signifies a routing 
+#change, the assumed source is checked against the reported source, as a
+#means to keep track of changes to the receiver's source via the front
+#panel on the receiver.
+def lounge_sourceChanged():
+        global lastKnownSource
+        global sourceChangeCallback
+        if lastKnownSource != sourceChangeCallback[15:]:
+            lastKnownSource = sourceChangeCallback[15:]
+            return True
+        else:
+            return False
+
+#Receiver Status
+#
+#Reports the current status of the receiver
+@app.route('/lounge/receiver', methods=["GET", "PUT"])
+def lounge_receiver():
+    global lastKnownSource
+    sources = {"HDMI 1" : "Media PC",
+            "HDMI 2" : "Aux HDMI",
+            "HDMI 3" : "Chromecast",
+            "HDMI 4" : "Raspberry PI"}
+    recInput = ""
+    if lastKnownSource == "21:00":
+        recInput = "HDMI 1"
+    elif lastKnownSource == "22:00":
+        recInput = "HDMI 2"
+    elif lastKnownSource == "23:00":
+        recInput = "HDMI 3"
+    elif lastKnwonSource == "24:00":
+        recInput = "HDMI 4"
+
+    recMute = False
+    if lounge_audio_status() > 127:
+        recMute = True
+    else:
+        revMute = False
+
+    recVolume = 0
+    if lounge_audio_status() > 127:
+        recVolume = lounge_audio_status() - 128
+    else:
+        recVolume = lounge_audio_status()
+
+    recStatus = {"input" : recInput,
+            "mute" : recMute,
+            "sources" : sources,
+            "volume" : recVolume}
+
+    response = {"receiver" : recStatus, "status" : {"success" : True}}
+    return make_response(jsonify(response), 200) 
 
 ###
 #Projector Controls
