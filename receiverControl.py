@@ -2,11 +2,11 @@
 
 import serial
 import time
+import RPi.GPIO as GPIO
 from flask import request
 from flask import Flask
 from flask import jsonify
 from flask import make_response
-
 
 app = Flask(__name__)
 
@@ -560,6 +560,30 @@ def lounge_proj_getCurrentSource():
     else:
         ser.close()
         return "Error"
+
+GPIO.setmode(GPIO.BOARD)
+backRadiatorStatus = False;
+backRadiator = 3
+GPIO.setup(backRadiator, GPIO.OUT)
+
+@app.route('/lounge/radiator', methods=["GET", "PUT"])
+def lounge_radiator():
+    global backRadiatorStatus
+    if request.method == 'GET':
+        return make_response(jsonify({"status" : {"success" : True}, "radiator" : {"fan" : backRadiatorStatus}}), 200)
+    else:
+        req = request.get_json()
+        if req["token"]["id"] == token:
+            if req["radiator"]["fan"] == True:
+                GPIO.output(backRadiator, True)
+                backRadiatorStatus = True
+            else:
+                GPIO.output(backRadiator, False)
+                backRadiatorStatus = False
+            return make_response(jsonify({"status" : {"success" : True}}), 200)
+        else:
+            return make_response(jsonify({"status" : {"success" : False}}), 400)
+
 
 @app.route('/lounge/test', methods=["GET", "PUT"])
 def lounge_test():
