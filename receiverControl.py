@@ -2,11 +2,11 @@
 
 import serial
 import time
+import RPi.GPIO as GPIO
 from flask import request
 from flask import Flask
 from flask import jsonify
 from flask import make_response
-
 
 app = Flask(__name__)
 
@@ -190,14 +190,7 @@ lib.InitLibCec()
 #A successful request will change the currently selected input on the
 #receiver. The currently connected devices are the MediaPC, the 
 #AuxHDMI cable for presentations, the Chromecast, and the RPi that this
-#service is running on. There is no handled input to switch to this 
-#machine in an effort to prevent people from attempting to login to the 
-#pi to change settings.
-#
-#Interesting to note, occasionally the Physicall Addresses would switch
-#to addresses that started with 1, instead of 2 (e.g. 1.3.0.0).
-#I don't know why this happens, a call to lib.lib.GetDevicePhysicalAddress(1)
-#returns 5120 in this instance. Check for that.
+#service is running on.
 
 @app.route('/lounge/receiver/input', methods=["GET", "PUT"])
 def lounge_input():
@@ -442,7 +435,9 @@ def lounge_projblank():
             ser.flush()
             ser.close()
             return make_response(jsonify({"status" : {"success":False}}), 400)
-
+#Projector Input Control
+#
+#Changes the current input on the projector
 @app.route('/lounge/projector/input', methods=["GET", "PUT"])
 def lounge_projinput():
         req = request.get_json()
@@ -481,6 +476,8 @@ def lounge_projinput():
             ser.close()
             return make_response(jsonify({"status" : {"success":False}}), 400)
 
+#Queries the status of the projector, and returns the current blank status,
+#lamp hours, input, power status, and sources list.
 @app.route('/lounge/projector', methods=["GET", "PUT"])
 def lounge_proj():
         sources = {"Composite": None,
@@ -500,6 +497,7 @@ def lounge_proj():
                 "sources": sources}
         return make_response(jsonify({"projector" : currentStatus, "status" : {"success" : True}}), 200)
 
+#Returns the current blank status of the Projector
 def lounge_proj_getCurrentBlank():
     ser.open()
     ser.write("\r*blank=?#\r")
@@ -512,6 +510,7 @@ def lounge_proj_getCurrentBlank():
     else:
         return False
 
+#Returns the current lamp hours of the Projector
 def lounge_proj_getCurrentHours():
     ser.open()
     ser.write("\r*ltim=?#\r")
@@ -521,6 +520,7 @@ def lounge_proj_getCurrentHours():
     ser.close()
     return hourline[6:-3]
 
+#Returns the current power status of the Projector
 def lounge_proj_getCurrentPower():
     ser.open()
     ser.write("\r*pow=?#\r")
@@ -534,6 +534,7 @@ def lounge_proj_getCurrentPower():
         ser.close()
         return False
 
+#Returns the current source of the Projector
 def lounge_proj_getCurrentSource():
     ser.open()
     ser.write("\r*sour=?#\r")
@@ -561,13 +562,33 @@ def lounge_proj_getCurrentSource():
         ser.close()
         return "Error"
 
-@app.route('/lounge/test', methods=["GET", "PUT"])
-def lounge_test():
-	ser.write("\r*pow=?#\r")
-        ser.flush()
-        ser.readline()
-	response = ser.readline()
-        return make_response(response, 200)
+#Setup for GPIO Control
+GPIO.setmode(GPIO.BOARD)
+backRadiatorStatus = False;
+backRadiator = 3
+GPIO.setup(backRadiator, GPIO.OUT)
+
+#Radiator Control
+#
+#Controls the radiator behind the risers via the GPIO on the Pi, using 
+#the RPi.GPIO Python Library
+@app.route('/lounge/radiator', methods=["GET", "PUT"])
+def lounge_radiator():
+    global backRadiatorStatus
+    if request.method == 'GET':
+        return make_response(jsonify({"status" : {"success" : True}, "radiator" : {"fan" : backRadiatorStatus}}), 200)
+    else:
+        req = request.get_json()
+        if req["token"]["id"] == token:
+            if req["radiator"]["fan"] == True:
+                GPIO.output(backRadiator, True)
+                backRadiatorStatus = True
+            else:
+                GPIO.output(backRadiator, False)
+                backRadiatorStatus = False
+            return make_response(jsonify({"status" : {"success" : True}}), 200)
+        else:
+            return make_response(jsonify({"status" : {"success" : False}}), 400)
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0', debug=True)
