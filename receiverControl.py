@@ -376,7 +376,7 @@ def lounge_projpower():
 	req = request.get_json()
         ser.open()
 	if req["token"]["id"] == token:
-		if req["power"]["state"] == "true":
+		if req["power"]["state"] == True:
 			ser.write("\r*pow=on#\r")
                         ser.flush()
                         ser.readline()
@@ -388,7 +388,7 @@ def lounge_projpower():
                             ser.flush()
                             ser.close()
                             return make_response(jsonify({"status" : {"success":False}}), 412)
-		elif req["power"]["state"] == "false":
+		elif req["power"]["state"] == False:
 			ser.write("\r*pow=off#\r")
                         ser.flush()
                         ser.readline()
