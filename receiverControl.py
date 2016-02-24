@@ -322,19 +322,19 @@ def lounge_sourceChanged():
 @app.route('/lounge/receiver', methods=["GET", "PUT"])
 def lounge_receiver():
     global lastKnownSource
-    sources = {"HDMI 1" : "Media PC",
-            "HDMI 2" : "Aux HDMI",
-            "HDMI 3" : "Chromecast",
-            "HDMI 4" : "Raspberry PI"}
+    sources = {"HDMI1" : "Media PC",
+            "HDMI2" : "Aux HDMI",
+            "HDMI3" : "Chromecast",
+            "HDMI4" : "Raspberry PI"}
     recInput = ""
     if lastKnownSource == "21:00":
-        recInput = "HDMI 1"
+        recInput = "HDMI1"
     elif lastKnownSource == "22:00":
-        recInput = "HDMI 2"
+        recInput = "HDMI2"
     elif lastKnownSource == "23:00":
-        recInput = "HDMI 3"
+        recInput = "HDMI3"
     elif lastKnwonSource == "24:00":
-        recInput = "HDMI 4"
+        recInput = "HDMI4"
 
     recMute = False
     if lounge_audio_status() > 127:
@@ -481,10 +481,10 @@ def lounge_projinput():
 @app.route('/lounge/projector', methods=["GET", "PUT"])
 def lounge_proj():
         sources = {"Composite": None,
-                "Computer 1": "Aux VGA",
-                "Computer 2": None,
-                "HDMI 1": None,
-                "HDMI 2": "Receiver"}
+                "Computer1": "Aux VGA",
+                "Computer2": None,
+                "HDMI1": None,
+                "HDMI2": "Receiver"}
         currentInput = lounge_proj_getCurrentSource()
         currentPower = lounge_proj_getCurrentPower()
         currentHours = lounge_proj_getCurrentHours()
@@ -544,17 +544,17 @@ def lounge_proj_getCurrentSource():
     if sourceline.find("RGB") > 0:
         if sourceline.find("2") > 0:
             ser.close()
-            return "Computer 2"
+            return "Computer2"
         else:
             ser.close()
-            return "Computer 1"
+            return "Computer1"
     elif sourceline.find("HDMI") > 0:
         if sourceline.find("2") > 0:
             ser.close()
-            return "HDMI 2"
+            return "HDMI2"
         else:
             ser.close()
-            return "HDMI 1"
+            return "HDMI1"
     elif sourceline.find("YPBR") > 0:
         ser.close()
         return "Composite"
