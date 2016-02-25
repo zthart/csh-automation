@@ -15,14 +15,18 @@ token = "<API KEY>"
 def lounge_lights():
 	req = request.get_json()
 	if req["token"]["id"] == token:
-		if req["lights"]["L1"] == "true":
+		if req["lights"]["L1"] == True:
 			os.system("heyu on L1")
-		else:
+		elif req["lights"]["L1"] == False:
 			os.system("heyu off L1")
-		if req["lights"]["L2"] == "true":
-			os.system("heyu on L2")
 		else:
+			return make_response(jsonify({"status" : {"success" : False}}), 412)
+		if req["lights"]["L2"] == True:
+			os.system("heyu on L2")
+		elif req["lights"]["L2"] == False:
 			os.system("heyu off L2")
+		else:
+			return make_response(jsonify({"status" : {"success" : False}}), 412)
 		return make_response(jsonify({"status" : {"success" : True}}), 200)
 	else:
 		return make_response(jsonify({"status" : {"success" : False}}), 400)
