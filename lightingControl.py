@@ -22,7 +22,7 @@ def lounge_lights():
 		if req["lights"]["L2"] == "true":
 			os.system("heyu on L2")
 		else:
-			os.system("hey off L2")
+			os.system("heyu off L2")
 		return make_response(jsonify({"status" : {"success" : True}}), 200)
 	else:
 		return make_response(jsonify({"status" : {"success" : False}}), 400)

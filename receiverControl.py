@@ -199,19 +199,19 @@ def lounge_input():
 	req = request.get_json()
 	input = req["input"]["select"]
 	if req["token"]["id"] == token:
-		if input == "MediaPC":
+		if input == "HDMI1":
 			#Change to MediaPC (2.1.0.0)
                         lastKnownSource = "21:00"
 			lib.ProcessCommandTx("1f:82:21:00")
-		elif input == "AuxHDMI":
+		elif input == "HDMI2":
 			#Change to AuxHDMI (2.2.0.0)
                         lastKnownSource = "22:00"
 			lib.ProcessCommandTx("1f:82:22:00")
-		elif input == "Chromecast":
+		elif input == "HDMI3":
 			#Change to Chromecast (2.3.0.0)
                         lastKnownSource = "23:00"
 			lib.ProcessCommandTx("1f:82:23:00")
-		elif input == "Admin":
+		elif input == "HDMI4":
 			#Change to Chromecast (2.4.0.0)
                         lastKnownSource = "24:00"
 			lib.ProcessCommandTx("1f:82:24:00")
