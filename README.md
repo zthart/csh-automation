@@ -18,10 +18,10 @@ Response:
     "power": false,
     "sources": {
       "Composite": null,
-      "Computer 1": "Aux VGA",
-      "Computer 2": null,
-      "HDMI 1": null,
-      "HDMI 2": "Receiver"
+      "Computer1": "Aux VGA",
+      "Computer2": null,
+      "HDMI1": null,
+      "HDMI2": "Receiver"
     }
   },
   "status": {
@@ -88,6 +88,9 @@ PUT https://control.csh.rit.edu/lounge/projector/blank
 {
   "token": {
     "id": ""
+  },
+  "blank": {
+	"state": true / false
   }
 }
 ```
@@ -113,15 +116,14 @@ Response:
 
 ```
 {
-  "projector": {
+  "receiver": {
     "input": "HMDI 2",
     "mute": false,
-    "power": false,
     "sources": {
-      "HDMI 1": "Media PC",
-      "HDMI 2": "Aux HDMI",
-      "HDMI 3": "Chromecast",
-      "HDMI 4": "Raspberry Pi"
+      "HDMI1": "Media PC",
+      "HDMI2": "Aux HDMI",
+      "HDMI3": "Chromecast",
+      "HDMI4": "Raspberry Pi"
     },
     "volume": 46
   },
@@ -174,6 +176,28 @@ Response:
   }
 }
 ```
+#####Volume Adjustment
+```
+PUT https://control.csh.rit.edu/lounge/receiver/volume
+
+{
+  "token": {
+    "id": ""
+  },
+  "volume": {
+	"level": 1-127
+  }
+}
+```
+Response:
+
+```
+{
+  "status": {
+    "success": true
+  }
+}
+```
 #####Audio Mute Toggle
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/mute
@@ -181,6 +205,9 @@ PUT https://control.csh.rit.edu/lounge/receiver/mute
 {
   "token": {
     "id": ""
+  },
+  "mute": {
+	"state": true / false
   }
 }
 ```
@@ -206,7 +233,7 @@ Response:
     "success": true
   },
   "lights": {
-	"L1": true / false
+	"L1": true / false,
 	"L2": true / false
   }
 }
@@ -220,8 +247,9 @@ PUT https://control.csh.rit.edu/lounge/lights
     "id": ""
   },
   "lights": {
-	"L1": true / false
+	"L1": true / false,
 	"L2": true / false
+	**You can update either an individual light or both simultaneously**
   }
 }
 
