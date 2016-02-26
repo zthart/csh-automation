@@ -274,21 +274,24 @@ def lounge_mute():
 @app.route('/lounge/receiver/volume', methods=["GET", "PUT"])
 def lounge_volume():
 	req = request.get_json()
-	if req["token"]["id"] == token:
-		if req["control"]["type"] == 1:
-			lib.ProcessCommandTx("15:44:41")
-			lib.ProcessCommandTx("15:71")
-			time.sleep(.5)
-			return make_response(jsonify({"status" : {"success":True, "level" : lounge_audio_status()}}), 200)
-		elif req["control"]["type"] == 0:
-			lib.ProcessCommandTx("15:44:42")
-			lib.ProcessCommandTx("15:71")
-			time.sleep(.5)
-			return make_response(jsonify({"status" : {"success":True, "level" : lounge_audio_status()}}), 200)
-		else:
-			return make_response(jsonify({"status" : {"success":False, "level" : lounge_audio_status()}}), 400)
-	else:
-		return make_response(jsonify({"status" : {"success":False, "level" : lounge_audio_status()}}), 400)
+        if req["token"]["id"] == token:
+            level = req["volume"]["level"]
+            if level < lounge_audio_status():
+                while abs(level-lounge_audio_status()) > 3:
+                    lib.ProcessCommandTx("15:44:42")
+                    lib.ProcessCommandTx("15:45")
+                    lib.ProcessCommandTx("15:71")
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif level > lounge_audio_status():
+                while abs(level-lounge_audio_status()) > 3:
+                    lib.ProcessCommandTx("15:44:41")
+                    lib.ProcessCommandTx("15:45")
+                    lib.ProcessCommandTx("15:71")
+                return make_response(jsonify({"status" : {"success":True}}), 200)
+            else:
+                return make_response(jsonify({"stauts" : {"success":True}}), 200)
+        else:
+            return make_response(jsonify({"status" : {"success":False}}), 400)
 
 #Refresh Audio Status
 #
@@ -297,7 +300,6 @@ def lounge_volume():
 #returns the previous audio value plus 128 for muted volumes.
 def lounge_audio_status():
 	lib.ProcessCommandTx("15:71")
-	time.sleep(.5)
 	audio_status = lib.lib.AudioStatus()
 	return audio_status 
 
