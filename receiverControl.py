@@ -392,16 +392,8 @@ def lounge_projpower():
                             return make_response(jsonify({"status" : {"success":False}}), 412)
 		elif req["power"]["state"] == False:
 			ser.write("\r*pow=off#\r")
-                        ser.flush()
-                        ser.readline()
-                        if ser.readline().find("OFF") > 0:
-                            ser.flush()
-                            ser.close()
-			    return make_response(jsonify({"status" : {"success":True}}), 200)
-                        else:
-                            ser.flush()
-                            ser.close()
-                            return make_response(jsonify({"status" : {"success":False}}), 412)
+                        ser.close
+			return make_response(jsonify({"status" : {"success":True}}), 200)
 		else:
                         ser.close()
 			return make_response(jsonify({"status" : {"success":False}}), 400)
