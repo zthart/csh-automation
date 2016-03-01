@@ -132,28 +132,6 @@ Response:
   }
 }
 ```
-#####Toggle Power
-```
-PUT https://control.csh.rit.edu/lounge/receiver/power
-
-{
-  "token": {
-    "id": ""
-  },
-  "power": {
-	"state": true / false
-  }
-}
-```
-Response:
-
-```
-{
-  "status": {
-    "success": true
-  }
-}
-```
 #####Change Input
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/input
@@ -163,7 +141,7 @@ PUT https://control.csh.rit.edu/lounge/receiver/input
     "id": ""
   },
   "input": {
-	"select": [Item from sources list. Ex. "HDMI 2"]
+	"select": [Item from sources list. Ex. "HDMI2"]
   }
 }
 ```
@@ -221,23 +199,6 @@ Response:
 }
 ```
 ###Light Controls
-#####Light Status
-```
-GET https://control.csh.rit.edu/lounge/lights
-```
-Response:
-
-```
-{
-  "status": {
-    "success": true
-  },
-  "lights": {
-	"L1": true / false,
-	"L2": true / false
-  }
-}
-```
 #####Toggle Lights
 ```
 PUT https://control.csh.rit.edu/lounge/lights
@@ -282,7 +243,7 @@ Response:
 ```
 #####Toggle Radiator
 ```
-PUT https://control.csh.rit.edu/lounge/lights
+PUT https://control.csh.rit.edu/lounge/radiator
 
 {
   "token": {
