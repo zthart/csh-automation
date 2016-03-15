@@ -245,37 +245,47 @@ def lounge_mute():
 	#store request json	
 	req = request.get_json()
 	if req["token"]["id"] == token:
-		#send user control pressed, then user control released
-		lib.ProcessCommandTx("15:44:43")
-		lib.ProcessCommandTx("15:45")
-		lib.ProcessCommandTx("15:71")
-		
-		if lounge_audio_status() > 127:
-			return make_response(jsonify({"status" : {"success":True,"state":1}}),200)
-		else:
-			return make_response(jsonify({"status" : {"success":True,"state":0}}),200)
-	else:
-		#if the request token is invalid
-		return make_response(jsonify({"status" : {"success":False,"state":isMuted}}),400) 
+            if req["mute"]["state"] == True:
+                if lounge_audio_status() > 127:
+                    return make_response(jsonify({"status" : {"success":True}}), 200)
+                else:
+                    lib.ProcessCommandTx("15:44:43")
+                    lib.ProcessCommandTx("15:45")
+                    lib.ProcessCommandTx("15:71")
+                    return make_response(jsonify({"status" : {"success":True}}), 200)
+            elif req["mute"]["state"] == False:
+                if lounge_audio_status() > 127:
+                    lib.ProcessCommandTx("15:44:43")
+                    lib.ProcessCommandTx("15:45")
+                    lib.ProcessCommandTx("15:71")
+                    return make_response(jsonify({"status" : {"success":True}}), 200)
+                else:
+                    return make_response(jsonify({"status" : {"success":True}}), 200)
+            else:
+                return make_response(jsonify({"status" : {"success":False}}), 400)
+        else:
+            return make_response(jsonify({"status" : {"success":False}}), 400)
 
 #Volume Control
 #
-#A successful request will send either a volume up (1), or volume down (0)
-#command, along with a command to ask the receiver for it's current audio status.
+#The requested audio status (1-127) is sent, and then the audiostatus is increased
+#until the current value is within 3 of the target number.
 #The service will then return whether or not the volume change was successful,
-#and the current audio status. the audio status reports volume from 1-80, mapped
+#and the current audio status. the audio status reports volume from 1-80, 
+#which is actually just 1-100 capped at 80, and it's all mapped
 #to 1-127. Any number larger than 127 reported as an audio status means
 #the system is presently muted.
-#
-#Any requests with a control type less than 0 or larger than 1 will return the
-#last known audio status, and "success" as 'False'. Requests with an invalid
-#API Key receive the same return status.
 
 @app.route('/lounge/receiver/volume', methods=["GET", "PUT"])
 def lounge_volume():
 	req = request.get_json()
         if req["token"]["id"] == token:
             level = req["volume"]["level"]
+            if level > 101 and lounge_audio_status() > 101:
+                return make_response(jsonify({"status" : {"success":False}}), 200)
+            elif level > 101 and lounge_audio_status() < 101:
+                level = 100
+
             if level < lounge_audio_status():
                 while abs(level-lounge_audio_status()) > 3:
                     lib.ProcessCommandTx("15:44:42")
@@ -324,6 +334,7 @@ def lounge_sourceChanged():
 @app.route('/lounge/receiver', methods=["GET", "PUT"])
 def lounge_receiver():
     global lastKnownSource
+    print("Receiver Status Requested")
     sources = {"HDMI1" : "Media PC",
             "HDMI2" : "Aux HDMI",
             "HDMI3" : "Chromecast",
@@ -375,121 +386,122 @@ def lounge_receiver():
 #or is unreachable via serial.
 @app.route('/lounge/projector/power', methods=["GET", "PUT"])
 def lounge_projpower():
-	req = request.get_json()
-        ser.open()
-	if req["token"]["id"] == token:
-		if req["power"]["state"] == True:
-			ser.write("\r*pow=on#\r")
-                        ser.flush()
-                        ser.readline()
-                        if ser.readline().find("ON") > 0:
-                            ser.flush()
-                            ser.close()
-			    return make_response(jsonify({"status" : {"success":True}}), 200)
-                        else:
-                            ser.flush()
-                            ser.close()
-                            return make_response(jsonify({"status" : {"success":False}}), 412)
-		elif req["power"]["state"] == False:
-			ser.write("\r*pow=off#\r")
-                        ser.close
-			return make_response(jsonify({"status" : {"success":True}}), 200)
-		else:
-                        ser.close()
-			return make_response(jsonify({"status" : {"success":False}}), 400)
-	else:
+    req = request.get_json()
+    ser.open()
+    if req["token"]["id"] == token:
+	if req["power"]["state"] == True:
+	    ser.write("\r*pow=on#\r")
+            ser.flush()
+            ser.readline()
+            if ser.readline().find("ON") > 0:
+                ser.flush()
                 ser.close()
-		return make_response(jsonify({"status" : {"success":False}}), 400)
+	        return make_response(jsonify({"status" : {"success":True}}), 200)       
+            else:
+                ser.flush()
+                ser.close()
+                return make_response(jsonify({"status" : {"success":False}}), 412)
+        elif req["power"]["state"] == False:
+            ser.write("\r*pow=off#\r")
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        else:
+            ser.close()
+            return make_response(jsonify({"status" : {"success":False}}), 400)
+    else:
+        ser.close()
+        return make_response(jsonify({"status" : {"success":False}}), 400)
 
 #Projector Blank Control
 #
 #Checks the current blank status of the projector, and toggles it.
 @app.route('/lounge/projector/blank', methods=["GET", "PUT"])
 def lounge_projblank():
-        req = request.get_json()
-        ser.open()
-        ser.write("\r*blank=?#\r")
-        ser.flush()
-        ser.readline()
-        status = ser.readline()
-        if req["token"]["id"] == token:
-            if status.find("ON") > 0:
-                print(status)
-                ser.write("\r*blank=off#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            else:
-                print(status)
-                ser.write("\r*blank=on#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-        else:
+    req = request.get_json()
+    ser.open()
+    ser.write("\r*blank=?#\r")
+    ser.flush()
+    ser.readline()
+    status = ser.readline()
+    if req["token"]["id"] == token:
+        if status.find("ON") > 0:
+            print(status)
+            ser.write("\r*blank=off#\r")
             ser.flush()
             ser.close()
-            return make_response(jsonify({"status" : {"success":False}}), 400)
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        else:
+            print(status)
+            ser.write("\r*blank=on#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+    else:
+        ser.flush()
+        ser.close()
+        return make_response(jsonify({"status" : {"success":False}}), 400)
+
 #Projector Input Control
 #
 #Changes the current input on the projector
 @app.route('/lounge/projector/input', methods=["GET", "PUT"])
 def lounge_projinput():
-        req = request.get_json()
-        ser.open()
-        source = req["input"]["select"]
-        if req["token"]["id"] == token:
-            if source == "HDMI2":
-                ser.write("\r*sour=hdmi2#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            elif source == "HDMI":
-                ser.write("\r*sour=hdmi#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            elif source == "Component":
-                ser.write("\r*sour=ypbr#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            elif source == "Computer1":
-                ser.write("\r*sour=RGB#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            elif source == "Computer2":
-                ser.write("\r*sour=RGB2#\r")
-                ser.flush()
-                ser.close()
-                return make_response(jsonify({"status" : {"success":True}}), 200)
-            else:
-                ser.close()
-                return make_response(jsonify({"status" : {"success":False}}), 400)
+    req = request.get_json()
+    ser.open()
+    source = req["input"]["select"]
+    if req["token"]["id"] == token:
+        if source == "HDMI2":
+            ser.write("\r*sour=hdmi2#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        elif source == "HDMI":
+            ser.write("\r*sour=hdmi#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        elif source == "Component":
+            ser.write("\r*sour=ypbr#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        elif source == "Computer1":
+            ser.write("\r*sour=RGB#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
+        elif source == "Computer2":
+            ser.write("\r*sour=RGB2#\r")
+            ser.flush()
+            ser.close()
+            return make_response(jsonify({"status" : {"success":True}}), 200)
         else:
             ser.close()
             return make_response(jsonify({"status" : {"success":False}}), 400)
+    else:
+        ser.close()
+        return make_response(jsonify({"status" : {"success":False}}), 400)
 
 #Queries the status of the projector, and returns the current blank status,
 #lamp hours, input, power status, and sources list.
 @app.route('/lounge/projector', methods=["GET", "PUT"])
 def lounge_proj():
-        sources = {"Composite": None,
-                "Computer1": "Aux VGA",
-                "Computer2": None,
-                "HDMI1": None,
-                "HDMI2": "Receiver"}
-        currentInput = lounge_proj_getCurrentSource()
-        currentPower = lounge_proj_getCurrentPower()
-        currentHours = lounge_proj_getCurrentHours()
-        currentBlank = lounge_proj_getCurrentBlank()
+    sources = {"Composite": None,
+        "Computer1": "Aux VGA",
+        "Computer2": None,
+        "HDMI1": None,
+        "HDMI2": "Receiver"}
+    currentInput = lounge_proj_getCurrentSource()
+    currentPower = lounge_proj_getCurrentPower()
+    currentHours = lounge_proj_getCurrentHours()
+    currentBlank = lounge_proj_getCurrentBlank()
 
-        currentStatus = {"blank":currentBlank,
-                "hours":currentHours,
-                "input":currentInput,
-                "power":currentPower,
-                "sources": sources}
-        return make_response(jsonify({"projector" : currentStatus, "status" : {"success" : True}}), 200)
+    currentStatus = {"blank":currentBlank,
+        "hours":currentHours,
+        "input":currentInput,
+        "power":currentPower,
+        "sources": sources}
+    return make_response(jsonify({"projector" : currentStatus, "status" : {"success" : True}}), 200)
 
 #Returns the current blank status of the Projector
 def lounge_proj_getCurrentBlank():
@@ -558,8 +570,13 @@ def lounge_proj_getCurrentSource():
 
 #Setup for GPIO Control
 GPIO.setmode(GPIO.BOARD)
-backRadiatorStatus = False;
+backRadiatorStatus = False
+windowControlStatus = False
+
 backRadiator = 3
+windowControl = 5
+
+GPIO.setup(windowControl, GPIO.OUT)
 GPIO.setup(backRadiator, GPIO.OUT)
 
 #Radiator Control
@@ -584,5 +601,29 @@ def lounge_radiator():
         else:
             return make_response(jsonify({"status" : {"success" : False}}), 400)
 
-if __name__ == '__main__':
-	app.run(host='0.0.0.0', debug=True)
+#Window Control
+#
+#Pulses pin 5 on the raspberry pi, maintains state
+@app.route('/lounge/window', methods=["GET", "PUT"])
+def lounge_window():
+    global windowControlStatus
+    req = request.get_json()
+    if request.method == 'GET':
+        return make_response(jsonify({"status" : {"success" : True}, "window" : {"open" : windowControlStatus}}), 200)
+    else:
+        if req["token"]["id"] == token:
+            if req["window"]["open"] == True:
+                GPIO.output(windowControl, True)
+                GPIO.output(windowControl, False)
+                windowControlStatus = True
+            else:
+                GPIO.output(windowControl, True)
+                GPIO.output(windowControl, False)
+                windowControlStatus = False
+            return make_response(jsonify({"status" : {"success" : True}}), 200)
+        else:
+            return make_response(jsonify({"status" : {"success" : False}}), 400)
+
+if __name__ == '__main__':  
+    #GPIO.output(doorRelay, True)
+    app.run(host='0.0.0.0', debug=True)
