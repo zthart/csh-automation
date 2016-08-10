@@ -126,7 +126,7 @@ class pyCecClient:
 
   # logging callback
   def LogCallback(self, level, time, message):
-    global sourceChangeCallback 
+    global sourceChangeCallback
     if level > self.log_level:
       return 0
 
@@ -188,7 +188,7 @@ lib.InitLibCec()
 #Receiver Input Control
 #
 #A successful request will change the currently selected input on the
-#receiver. The currently connected devices are the MediaPC, the 
+#receiver. The currently connected devices are the MediaPC, the
 #AuxHDMI cable for presentations, the Chromecast, and the RPi that this
 #service is running on.
 
@@ -224,12 +224,12 @@ def lounge_input():
 		#If the provided token was incorrect
 		return make_response(jsonify({"status" : {"success":False}}), 400)
 
-#Mute Control                                                         
-#                                                                     
-#A successful request will send commands to emulate a user pressing   
-#the mute button on the receiver remote, then releasing it.           
-#The mute command is the only command that requires we actually      
-#release the selected button - as all the others have a desired      
+#Mute Control
+#
+#A successful request will send commands to emulate a user pressing
+#the mute button on the receiver remote, then releasing it.
+#The mute command is the only command that requires we actually
+#release the selected button - as all the others have a desired
 #behavior of sending multiple inputs, whereas the mute button should
 #only be pressed once in order to correctly mute the machine.
 #
@@ -242,7 +242,7 @@ def lounge_input():
 
 @app.route('/lounge/receiver/mute', methods=["GET", "PUT"])
 def lounge_mute():
-	#store request json	
+	#store request json
 	req = request.get_json()
 	if req["token"]["id"] == token:
             if req["mute"]["state"] == True:
@@ -271,7 +271,7 @@ def lounge_mute():
 #The requested audio status (1-127) is sent, and then the audiostatus is increased
 #until the current value is within 3 of the target number.
 #The service will then return whether or not the volume change was successful,
-#and the current audio status. the audio status reports volume from 1-80, 
+#and the current audio status. the audio status reports volume from 1-80,
 #which is actually just 1-100 capped at 80, and it's all mapped
 #to 1-127. Any number larger than 127 reported as an audio status means
 #the system is presently muted.
@@ -311,11 +311,11 @@ def lounge_volume():
 def lounge_audio_status():
 	lib.ProcessCommandTx("15:71")
 	audio_status = lib.lib.AudioStatus()
-	return audio_status 
+	return audio_status
 
 #Refresh Input Status
 #
-#Each time a broadcast from the audio system that signifies a routing 
+#Each time a broadcast from the audio system that signifies a routing
 #change, the assumed source is checked against the reported source, as a
 #means to keep track of changes to the receiver's source via the front
 #panel on the receiver.
@@ -346,7 +346,7 @@ def lounge_receiver():
         recInput = "HDMI2"
     elif lastKnownSource == "23:00":
         recInput = "HDMI3"
-    elif lastKnwonSource == "24:00":
+    elif lastKnownSource == "24:00":
         recInput = "HDMI4"
 
     recMute = False
@@ -367,7 +367,7 @@ def lounge_receiver():
             "volume" : recVolume}
 
     response = {"receiver" : recStatus, "status" : {"success" : True}}
-    return make_response(jsonify(response), 200) 
+    return make_response(jsonify(response), 200)
 
 ###
 #Projector Controls
@@ -380,7 +380,7 @@ def lounge_receiver():
 #Projector Power Control
 #
 #Sends power commands over serial to the projector, takes either a string
-#"true" or "false" for "on" and "off" respectively. Response code 412 is 
+#"true" or "false" for "on" and "off" respectively. Response code 412 is
 #used in instances in which the projectors status cannot be acquired.
 #It is safe to assume that in these moments the projector is cooling down,
 #or is unreachable via serial.
@@ -396,7 +396,7 @@ def lounge_projpower():
             if ser.readline().find("ON") > 0:
                 ser.flush()
                 ser.close()
-	        return make_response(jsonify({"status" : {"success":True}}), 200)       
+	        return make_response(jsonify({"status" : {"success":True}}), 200)
             else:
                 ser.flush()
                 ser.close()
@@ -581,7 +581,7 @@ GPIO.setup(backRadiator, GPIO.OUT)
 
 #Radiator Control
 #
-#Controls the radiator behind the risers via the GPIO on the Pi, using 
+#Controls the radiator behind the risers via the GPIO on the Pi, using
 #the RPi.GPIO Python Library
 @app.route('/lounge/radiator', methods=["GET", "PUT"])
 def lounge_radiator():
@@ -624,6 +624,6 @@ def lounge_window():
         else:
             return make_response(jsonify({"status" : {"success" : False}}), 400)
 
-if __name__ == '__main__':  
+if __name__ == '__main__':
     #GPIO.output(doorRelay, True)
     app.run(host='0.0.0.0', debug=True)
