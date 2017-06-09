@@ -1,7 +1,7 @@
 # csh-automation
 
-###Projector Controls
-#####Projector Status
+### Projector Controls
+##### Projector Status
 Query for the status of the Lounge projector. This will return the current power state, selected input, input sources and bulb hours.
 
 ```
@@ -30,7 +30,7 @@ Response:
 }
 ```
 
-#####Toggle Power
+##### Toggle Power
 Example:
 
 ```
@@ -55,7 +55,7 @@ Response:
 }
 ```
 
-#####Change Input
+##### Change Input
 Example:
 
 ```
@@ -79,7 +79,7 @@ Response:
   }
 }
 ```
-#####Blank Projector
+##### Blank Projector
 Example:
 
 ```
@@ -105,8 +105,8 @@ Response:
 ```
 
 
-###Receiver Controls
-#####Receiver Status
+### Receiver Controls
+##### Receiver Status
 Query for the status of the Lounge receiver. This will return the current power state, selected input, input sources and volume level.
 
 ```
@@ -132,7 +132,7 @@ Response:
   }
 }
 ```
-#####Change Input
+##### Change Input
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/input
 
@@ -154,7 +154,7 @@ Response:
   }
 }
 ```
-#####Volume Adjustment
+##### Volume Adjustment
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/volume
 
@@ -176,7 +176,7 @@ Response:
   }
 }
 ```
-#####Audio Mute Toggle
+##### Audio Mute Toggle
 ```
 PUT https://control.csh.rit.edu/lounge/receiver/mute
 
@@ -198,8 +198,8 @@ Response:
   }
 }
 ```
-###Light Controls
-#####Toggle Lights
+### Light Controls
+##### Toggle Lights
 ```
 PUT https://control.csh.rit.edu/lounge/lights
 
@@ -224,8 +224,8 @@ Response:
   }
 }
 ```
-###Radiator Controls
-#####Radiator Status
+### Radiator Controls
+##### Radiator Status
 ```
 GET https://control.csh.rit.edu/lounge/radiator
 ```
@@ -241,7 +241,7 @@ Response:
   }
 }
 ```
-#####Toggle Radiator
+##### Toggle Radiator
 ```
 PUT https://control.csh.rit.edu/lounge/radiator
 
